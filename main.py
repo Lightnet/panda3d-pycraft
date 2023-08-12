@@ -1,3 +1,5 @@
+
+import platform
 from math import pi, sin, cos
 
 from direct.showbase.ShowBase import ShowBase
@@ -62,26 +64,57 @@ class MyGame(ShowBase):
         )
 
         if self.cameraSwingActivated:
-            md = self.win.getPointer(0)
-            mouseX = md.getX()
-            mouseY = md.getY()
+            props = base.win.getProperties()
+            actualMode = props.getMouseMode()
+            if actualMode == WindowProperties.M_relative:
+                md = self.win.getPointer(0)
+                mouseX = md.getX()
+                mouseY = md.getY()
 
-            mouseChangeX = mouseX - self.lastMouseX
-            mouseChangeY = mouseY - self.lastMouseY
+                mouseChangeX = mouseX - self.lastMouseX
+                mouseChangeY = mouseY - self.lastMouseY
 
-            self.cameraSwingFactor = 10
+                self.cameraSwingFactor = 10
 
-            currentH = self.camera.getH()
-            currentP = self.camera.getP()
+                currentH = self.camera.getH()
+                currentP = self.camera.getP()
 
-            self.camera.setHpr(
-                currentH - mouseChangeX * dt * self.cameraSwingFactor,
-                min(90, max(-90, currentP - mouseChangeY * dt * self.cameraSwingFactor)),
-                0
-            )
+                self.camera.setHpr(
+                    currentH - mouseChangeX * dt * self.cameraSwingFactor,
+                    min(90, max(-90, currentP - mouseChangeY * dt * self.cameraSwingFactor)),
+                    0
+                )
 
-            self.lastMouseX = mouseX
-            self.lastMouseY = mouseY
+                self.lastMouseX = mouseX
+                self.lastMouseY = mouseY
+            else:
+                #for os windows that mouse need to be center to able to rotate camera 
+                mw = base.mouseWatcherNode
+                if mw.hasMouse():
+                    # get the position, which at center is (0, 0)
+                    x, y = mw.getMouseX(), mw.getMouseY()
+                    #add more camera move to rotate camera
+                    self.cameraSwingFactor = 10000
+
+                    mouseChangeX = x
+                    mouseChangeY = y * -1 #invert camera?
+
+                    currentH = self.camera.getH()
+                    currentP = self.camera.getP()
+
+                    self.camera.setHpr(
+                        currentH - mouseChangeX * dt * self.cameraSwingFactor,
+                        min(90, max(-90, currentP - mouseChangeY * dt * self.cameraSwingFactor)),
+                        0
+                    )
+
+                    # move mouse back to center
+                    props = base.win.getProperties()
+                    base.win.movePointer(0,
+                                        props.getXSize() // 2,
+                                        props.getYSize() // 2)
+                    # now, x and y can be considered relative movements
+                    # https://docs.panda3d.org/1.10/python/programming/hardware-support/mouse-support
 
         return task.cont
     
@@ -157,13 +190,29 @@ class MyGame(ShowBase):
     def captureMouse(self):
         self.cameraSwingActivated = True
 
+        if platform.system() == 'windows':
+            #try to center but rotate camera
+            mw = base.mouseWatcherNode
+            #if mw.hasMouse():
+            # get the position, which at center is (0, 0)
+            x, y = mw.getMouseX(), mw.getMouseY()
+            # move mouse back to center
+            props = base.win.getProperties()
+            base.win.movePointer(0,
+                                props.getXSize() // 2,
+                                props.getYSize() // 2)
+                # now, x and y can be considered relative movements
+
         md = self.win.getPointer(0)
         self.lastMouseX = md.getX()
         self.lastMouseY = md.getY()
 
         properties = WindowProperties()
         properties.setCursorHidden(True)
-        properties.setMouseMode(WindowProperties.M_relative)
+        if platform.system() == 'windows':
+            properties.setMouseMode(WindowProperties.M_confined) # windows
+        else:
+            properties.setMouseMode(WindowProperties.M_relative) # mac & linux
         self.win.requestProperties(properties)
 
     def releaseMouse(self):
@@ -180,7 +229,7 @@ class MyGame(ShowBase):
         self.camLens.setFov(80)
 
         crosshairs = OnscreenImage(
-            image = 'crosshairs.png',
+            image = 'assets/crosshairs.png',
             pos = (0, 0, 0),
             scale = 0.05,
         )
@@ -196,7 +245,7 @@ class MyGame(ShowBase):
         self.cTrav.addCollider(rayNodePath, self.rayQueue)
 
     def setupSkybox(self):
-        skybox = loader.loadModel('skybox/skybox.egg')
+        skybox = loader.loadModel('assets/skybox/skybox.egg')
         skybox.setScale(500)
         skybox.setBin('background', 1)
         skybox.setDepthWrite(0)
@@ -235,10 +284,10 @@ class MyGame(ShowBase):
         collider.setPythonTag('owner', newBlockNode)
 
     def loadModels(self):
-        self.grassBlock = loader.loadModel('grass-block.glb')
-        self.dirtBlock = loader.loadModel('dirt-block.glb')
-        self.stoneBlock = loader.loadModel('stone-block.glb')
-        self.sandBlock = loader.loadModel('sand-block.glb')
+        self.grassBlock = loader.loadModel('assets/grass-block.glb')
+        self.dirtBlock = loader.loadModel('assets/dirt-block.glb')
+        self.stoneBlock = loader.loadModel('assets/stone-block.glb')
+        self.sandBlock = loader.loadModel('assets/sand-block.glb')
 
     def setupLights(self):
         mainLight = DirectionalLight('main light')
